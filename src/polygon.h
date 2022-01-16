@@ -471,35 +471,54 @@ public:
 
   //
   // check, if the polygon does not contain any crossing intersection vertex
-  // or crossing intersection chain or (if we want to compute the union instead
-  // of the intersection) a bouncing vertex or a bouncing intersection chain
+  // or crossing intersection chain 
   //
-  bool noCrossingVertex(bool union_case = false) {
-    for (vertex* V : vertices(ALL)) 
-      if (V->intersection) {
-        if ( (V->label == CROSSING) || (V->label == DELAYED_CROSSING) )
-          return(false);
-
-        if (union_case && ( (V->label == BOUNCING) || (V->label == DELAYED_BOUNCING) ) )
-          return(false);
-      }
-    return(true);
+  bool noCrossingVertex() {
+      for (vertex* V : vertices(ALL))
+          if (V->intersection) {
+              if ((V->label == CROSSING) || (V->label == DELAYED_CROSSING))
+                  return(false);
+          }
+      return(true);
   }
 
   //
-  // return a non-intersection point
+  // check, if the polygon does not contain any bouncing intersection vertex
+  // or bouncing intersection chains
   //
-  point2D getNonIntersectionPoint() {
-    for (vertex* V : vertices(ALL))
-      if (!V->intersection)
-        return(V->p);
+  bool noBouncingVertex() {
+      for (vertex* V : vertices(ALL))
+          if (V->intersection) {
+              if ((V->label == BOUNCING) || (V->label == DELAYED_BOUNCING))
+                  return(false);
+          }
+      return(true);
+  }
 
-    // no non-intersection vertex found -> find suitable edge midpoint
-    for (vertex* V : vertices(ALL))
-      // make sure that edge from V to V->next is not collinear with other polygon
-      if ( (V->next->neighbour != V->neighbour->prev) && (V->next->neighbour != V->neighbour->next) )
-        // return edge midpoint
-        return(0.5*(V->p + V->next->p));
+  //
+  // return for two components a non-intersection point. Can fail 
+  // (e.g. union of a polygon with a hole with polygon filling the hole) 
+  // and will then returns "false" and point (0,0)
+  //
+  bool getNonIntersectionPoint(point2D& nonIntersectionPoint) {
+      for (vertex* V : vertices(ALL))
+          if (!V->intersection)
+          {
+              nonIntersectionPoint = (V->p);
+              return true;
+          }
+
+      // no non-intersection vertex found -> find suitable edge midpoint
+      for (vertex* V : vertices(ALL))
+          // make sure that edge from V to V->next is not collinear with other polygon
+          if ((V->next->neighbour != V->neighbour->prev) && (V->next->neighbour != V->neighbour->next))
+          {
+              // return edge midpoint
+              nonIntersectionPoint = (0.5 * (V->p + V->next->p));
+              return true;
+          }
+      nonIntersectionPoint = point2D();
+      return false;
   }
   
   //

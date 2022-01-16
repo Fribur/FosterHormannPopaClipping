@@ -162,6 +162,30 @@ IntersectionType intersect(const edge& edgeP, const edge& edgeQ, double& alpha, 
 //
 ////////////////////////////////////////////////////////////////////////
 
+bool getNonIntersectionPointBruteForce(polygon* A, polygon* B, point2D& nonIntersectionPoint) {
+    //for the inside test between two components to work we need a non intersecting point.  
+    //this method is last resort trying to find one brute force 
+    double alpha;
+    double beta;
+    for (edge edgeA : A->edges(SOURCE))
+    {
+        bool edgeIntersects = false;
+        for (edge edgeB : B->edges(SOURCE))
+        {
+            IntersectionType i = intersect(edgeA, edgeB, alpha, beta);
+            if (i != NO_INTERSECTION)
+                edgeIntersects = true;
+        }
+        if (!edgeIntersects)
+        {
+            nonIntersectionPoint = edgeA.one->p;
+            return true;
+        }
+    }
+
+    nonIntersectionPoint = point2D();
+    return false;
+}
 
 ////////////////////////////////////////////////////////////////////////
 //
@@ -320,7 +344,7 @@ void labelIntersections() {
 	// 1) initial classification
     //
 
-  int count[2] = {0,0};
+  int count[3] = {0,0,0};
 
   // loop over intersection vertices of P
   for (polygon& P : PP) 
@@ -454,7 +478,7 @@ void labelIntersections() {
   set<polygon*> noIntersection[2];
   set<polygon*> identical[2];
 
-  count[0] = count[1] = 0;
+  count[0] = count[1] = count[2] = 0;
 
   for (int i=0; i<2; ++i) {
     vector<polygon>* P_or_Q = &PP;      // if i=0, then do it for P w.r.t. Q
@@ -467,39 +491,95 @@ void labelIntersections() {
   
     // loop over all components of P (or Q)
     for (polygon& P : *P_or_Q)
-      if (P.noCrossingVertex(UNION)) {
-        //
-        // P_ has no crossing vertex (but may have bounces or delayed bounces, except for UNION),
-        // hence it does not intersect with Q_or_P
-        //
-        noIntersection[i].insert(&P);   // remember component, and ignore it later in step 4
-        
-        // is P identical to some component of and Q_or_P?
-        if (P.allOnOn()) {
-          identical[i].insert(&P);      // -> remember for further processing below
+        if (P.noCrossingVertex()) {
+            if (P.noBouncingVertex())
+            {
+                noIntersection[i].insert(&P);   // remember component, and ignore it later in step 4
+                if (P.allOnOn()) {
+                    identical[i].insert(&P);      // -> remember for further processing below
+                }
+                else {
+                    // is P inside Q_or_P?   
+                    bool isInside = false;
+                    point2D p;
+                    P.getNonIntersectionPoint(p); //guarrantied to succeed here, because allOnOn test failed. 
+                    for (polygon& Q : *Q_or_P)
+                        if (Q.pointInPoly(p))
+                            isInside = !isInside;
+                    if (isInside ^ UNION) {
+                        RR.push_back(P);             // -> add P to the result
+                        count[0]++;
+                    }
+                }
+            }
+            else
+            {
+                // P does not cross any component of QQ, but some components of QQ touch P. 
+                if (UNION)
+                {
+                    // In case of UNION, check if the P component is encompassing any of the (possibly touching) Q components of QQ. 
+                    // If so, add the P component to solution. If not solution could be empty (no crossing vertices in CreateResult). 
+                    bool isOtherInside = false;
+                    for (polygon& Qb : *Q_or_P)  //go through all components of the other polygon and check if one if them is fully inside P
+                    {
+                        point2D q;
+                        bool success = Qb.getNonIntersectionPoint(q); //will fail e.g. in case the Q component fully overlaps a hole of PP
+                        //brute force search of non-intersecting point between Q and P component. Could "remeber" this in intersection phase 
+                        //(add contributing componentIDs to intersection node struct)
+                        if (!success)
+                            success = getNonIntersectionPointBruteForce(&Qb, &P, q);
+                        if (P.pointInPoly(q))
+                        {
+                            isOtherInside = !isOtherInside;
+                            break;
+                        }
+                    }
+                    if (isOtherInside)
+                    {
+                        noIntersection[i].insert(&P);   // remember component, and ignore it later in step 4
+                        RR.push_back(P);             // -> add P to the result
+                        count[1]++;
+                    }
+                }
+                else
+                {
+                    // In case of DIFFERENCE, add the inner component to the solution
+                   // check if P is inside Q_or_P ?
+                    bool isInside = false;
+                    point2D p;
+                    bool success = P.getNonIntersectionPoint(p);
+                    for (polygon& Q : *Q_or_P)
+                    {
+                        if (!success) //find for the Q and P component a non-intersecting point. Could remember this in intersection phase (add contributing componentIDs to intersection node struct)
+                            success = getNonIntersectionPointBruteForce(&P, &Q, p);
+                        if (Q.pointInPoly(p))
+                            isInside = !isInside;
+                    }
+                    if (isInside) {
+                        RR.push_back(P);             // -> add P to the result
+                        count[0]++;
+                    }
+                }
+            }
         }
-        else {  
-          // is P inside Q_or_P?
-          bool isInside = false;
-          point2D p = P.getNonIntersectionPoint();
-          for (polygon& Q : *Q_or_P)
-            if ( Q.pointInPoly(p) )
-              isInside = !isInside;              
-          if (isInside ^ UNION) {
-            RR.push_back(P);             // -> add P to the result
-            count[0]++;
-          }
-        }
-      }
   }
 
   // handle components of P that are identical to some component of Q
   for (polygon* P : identical[0]) {
     // is P a hole?
     bool P_isHole = false;  
-    for (polygon& P_ : PP)
-      if ( ( P_.root != P->root ) && (P_.pointInPoly(P->root->p)) )
-        P_isHole = !P_isHole;
+    point2D q, p;
+    if (PP.size() > 1)
+    {
+        for (polygon& P_ : PP)
+            if (P_.root != P->root) //skip test of P component against itself
+                if(getNonIntersectionPointBruteForce(&(*P), &P_, p)); //root node could be degenerate (hole node and outer polygon node overlap...so need to search )
+                    break; //we found a suitable p. (improvement: verify non-self-intersection against entire PP, not just first hit?)
+
+        for (polygon& P_ : PP)
+            if ((P_.root != P->root) && P_.pointInPoly(p)) //skip test of P component against itself
+                P_isHole = !P_isHole;
+    }
 
     for (polygon* Q : identical[1])
       for (vertex* V : Q->vertices(ALL))
@@ -507,20 +587,25 @@ void labelIntersections() {
           // is Q a hole?
           bool Q_isHole = false;  
           for (polygon& Q_ : QQ)
-            if ( ( Q_.root != Q->root ) && (Q_.pointInPoly(Q->root->p)) )
+              if (Q_.root != Q->root) //skip test of Q component against itself
+                  if (getNonIntersectionPointBruteForce(&(*Q), &Q_, q)); //root node could be degenerate (hole node and outer polygon node overlap...so need to search )
+                    break; //we found a suitable q. (improvement: verify non-self-intersection against entire QQ, not just first hit?)
+
+          for (polygon& Q_ : QQ)
+            if ( ( Q_.root != Q->root ) && (Q_.pointInPoly(q)) )
               Q_isHole = !Q_isHole;
 
           // if P and Q are both holes or both are not holes
           if (P_isHole == Q_isHole) {
             RR.push_back(*P);           // -> add P to the result
-            count[1]++;
+            count[2]++;
           }          
           goto next_P;
         }
     next_P: ;
   }
   
-  cout << "... " << count[0] << " interior and " << count[1] << " identical components added to result\n";
+  cout << "... " << count[0] << " interior, " << count[1] << " encompassing and " << count[2] << " identical components added to result\n";
 
 	//
 	// 4) set entry/exit flags
