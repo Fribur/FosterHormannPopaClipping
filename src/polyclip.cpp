@@ -82,9 +82,9 @@ IntersectionType intersect(const edge& edgeP, const edge& edgeQ, double& alpha, 
 			if (fabs(beta) <= EPSILON)
 				beta_is_0 = true;
 
-    //
+        //
 		// distinguish intersection types
-    //
+        //
     
 		if (alpha_in_0_1 && beta_in_0_1)
 			return (X_INTERSECTION);
@@ -135,14 +135,14 @@ IntersectionType intersect(const edge& edgeP, const edge& edgeQ, double& alpha, 
 			if ( (beta > EPSILON) && (beta < 1.0-EPSILON) )
 				beta_in_0_1 = true;
 			else
-				if (fabs(alpha) <= EPSILON)
+				if (fabs(beta) <= EPSILON)
 					beta_is_0 = true;
 				else
 					beta_not_in_0_1 = true;
 
-      //
+            //
 			// distinguish intersection types
-      //
+            //
 
 			if (alpha_in_0_1 && beta_in_0_1)
 				return (X_OVERLAP);
@@ -195,9 +195,9 @@ void computeIntersections() {
           vertex* Q1 = edgeQ.one;
     
           switch(i) {
-    			//
-    			// X-intersection
-    			//
+    		//
+    		// X-intersection
+    		//
           case X_INTERSECTION:
             I = (1.0-alpha)*edgeP.one->p + alpha*edgeP.two->p;
             I_P = new vertex(I,alpha);
@@ -208,8 +208,8 @@ void computeIntersections() {
             break;
     
       		//
-    			// X-overlap
-    			//
+    		// X-overlap
+    		//
           case X_OVERLAP:
     				I_Q = new vertex(P1->p, beta);
             insertVertex(I_Q, edgeQ);
@@ -220,9 +220,9 @@ void computeIntersections() {
             link(I_P, Q1);
             break;
     
-    			//
-    			// T-intersection or T_overlap on Q
-    			//
+    		//
+    		// T-intersection or T_overlap on Q
+    		//
           case T_INTERSECTION_Q:
           case T_OVERLAP_Q:
     				I_Q = new vertex(P1->p, beta);
@@ -230,9 +230,9 @@ void computeIntersections() {
             link(P1, I_Q);
             break;
     
-    			//
-    			// T-intersection or T-overlap on P
-    			//
+    		//
+    		// T-intersection or T-overlap on P
+    		//
           case T_INTERSECTION_P:
           case T_OVERLAP_P:
     				I_P = new vertex(Q1->p, alpha);
@@ -240,14 +240,14 @@ void computeIntersections() {
             link(I_P, Q1);
             break;
     
-    			//
-    			// V-intersection or V-overlap
-    			//
+    		//
+    		// V-intersection or V-overlap
+    		//
           case V_INTERSECTION:
           case V_OVERLAP:
             link(P1,Q1);
             break;
-    			}
+    	  }
         }
     
   cout << "... " << count[1] << " non-degenerate and ";
@@ -281,7 +281,7 @@ RelativePositionType oracle(vertex* Q, vertex* P1, vertex* P2, vertex* P3) {
 	if ( P1->intersection && (P1->neighbour == Q) )
 		return(IS_P_m);
 
-	// is Q linked to P2 ?
+	// is Q linked to P3 ?
 	if ( P3->intersection && (P3->neighbour == Q) )
 		return(IS_P_p);
 
@@ -318,7 +318,7 @@ void labelIntersections() {
   
 	//
 	// 1) initial classification
-  //
+    //
 
   int count[2] = {0,0};
 
@@ -330,7 +330,7 @@ void labelIntersections() {
   		vertex* P_m = I->prev;                // P-, predecessor of I on P
   		vertex* P_p = I->next;                // P+, successor of I on P
   		vertex* Q_m = I->neighbour->prev;     // Q-, predecessor of I on Q
-  		vertex* Q_p = I->neighbour->next;     // Q+, successor of I on P
+  		vertex* Q_p = I->neighbour->next;     // Q+, successor of I on Q
 
         while ((P_m->p - I->p) * (P_m->p - I->p) < EPSILON)
             P_m = P_m->prev;
@@ -438,18 +438,18 @@ void labelIntersections() {
 
   cout << "... " << count[0] << " delayed crossings and " << count[1] << " delayed bouncings" << endl;
 
-	//
-	// 3) copy labels from P to Q
-	//
+    //
+    // 3) copy labels from P to Q
+    //
 
   // loop over intersection vertices of P
   for (polygon& P : PP) 
     for (vertex* I : P.vertices(INTERSECTION))
       I->neighbour->label = I->label;
 
-  //
-  // 3.5) check for special cases
-  //
+    //
+    // 3.5) check for special cases
+    //
   
   set<polygon*> noIntersection[2];
   set<polygon*> identical[2];
@@ -768,10 +768,10 @@ void createResult() {
 //
 // cleans up the result polygon by removing unnecessary collinear vertices
 //
-void cleanUpResult() {
-  cout << "\nPost-processing...\n\n";
+void cleanUpPolygon(vector<polygon>& inputPolygon) {
+  cout << "\nRemoving dublicate vertices: ";
   int count = 0;
-  for (polygon& R : RR) {
+  for (polygon& R : inputPolygon) {
     while ( (R.root != NULL) && (fabs(A(R.root->prev->p,R.root->p,R.root->next->p)) < EPSILON) ) {
       R.removeVertex(R.root);
       count++;
@@ -791,9 +791,8 @@ void cleanUpResult() {
             }
         }
     }
-
   }
-  cout << "... " << count << " vertices removed\n\n";
+  cout << "... " << count << " vertices removed\n";
 }
 //
 ////////////////////////////////////////////////////////////////////////
@@ -819,7 +818,7 @@ void printInfo(vector<polygon>& PP) {
   }
   if (PP.size() > 1)
     cout << " = " << sum;
-  cout << " vertices\n\n";
+  cout << " vertices\n";
 }
 //
 ////////////////////////////////////////////////////////////////////////
@@ -829,7 +828,6 @@ void printInfo(vector<polygon>& PP) {
 // calculate area of Result Polygon
 //
 void resultArea() {
-    cout << "\nCalculating result Area...\n\n";
     int count = 0;
     double area = 0;
     for (polygon& R : RR) {
@@ -840,7 +838,7 @@ void resultArea() {
             area += (P2.x - P1.x) * (P2.y + P1.y) * 0.5;
         }
     }
-    cout << " Total Area: " << area << " \n\n";
+    cout << "R area: " << area << " \n";
 }
 //
 ////////////////////////////////////////////////////////////////////////
@@ -849,7 +847,7 @@ void resultArea() {
 //
 // load complex polygon P from file "s" and print statistics
 //
-void loadPolygon(vector<polygon>& PP, string s) {
+void loadPolygon(vector<polygon>& PP, string s, string polyType) {
   ifstream from(s);
   do {
     polygon P;
@@ -858,6 +856,8 @@ void loadPolygon(vector<polygon>& PP, string s) {
       PP.push_back(P);
   } while (!from.eof());
   from.close();
+  cleanUpPolygon(PP);
+  cout << polyType << " ";
   printInfo(PP);
 }
 //
@@ -869,14 +869,20 @@ void loadPolygon(vector<polygon>& PP, string s) {
 //
 void savePolygon(vector<polygon>& PP, string s) {
   ofstream to(s);
+  to.precision(20);
   for (polygon& P : PP)
     to << P;
   to.close();
   printInfo(PP);
+  resultArea();
 }
 //
 ////////////////////////////////////////////////////////////////////////
 
+inline bool fileExists(const std::string& name) {
+    struct stat buffer;
+    return (stat(name.c_str(), &buffer) == 0);
+}
 
 int main(int argc, char* argv[])
 {
@@ -884,6 +890,12 @@ int main(int argc, char* argv[])
   if (argc < 4) {
     cout << "insufficient number of parameters" << endl;
     exit(0);
+  }
+
+  if (!fileExists(argv[2]) || !fileExists(argv[3]))
+  {
+      cout << "Error accessing one of the input files" << endl;
+      exit(0);
   }
   
   int argn = 1;
@@ -894,8 +906,8 @@ int main(int argc, char* argv[])
   }
 
   // read input polygons
-  cout << "\nP "; loadPolygon(PP,string(argv[argn++]));
-  cout <<   "Q "; loadPolygon(QQ,string(argv[argn++]));
+  loadPolygon(PP, string(argv[argn++]), "P");
+  loadPolygon(QQ, string(argv[argn++]), "Q");
   
   // phase 1
   computeIntersections();  
@@ -907,7 +919,7 @@ int main(int argc, char* argv[])
   createResult();
   
   // post-processing
-  cleanUpResult();
+  cleanUpPolygon(RR);
   
   // write output polygon
   cout << "R "; savePolygon(RR,string(argv[argn]));
