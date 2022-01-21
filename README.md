@@ -22,8 +22,8 @@ https://www.inf.usi.ch/hormann/
 
 The code can be compiled by executing
 
-* g++ -std=c++11 polyclip.cpp -o polyclip.exe
-* gcc -g polyclip.cpp -lstdc++ -std=c++11 -o polyclip.exe
+- `g++ -std=c++11 polyclip.cpp -o polyclip.exe`
+- `gcc -g polyclip.cpp -lstdc++ -std=c++11 -o polyclip.exe`
 
 Or open PolyClip.sln in Visual Studio.
 
@@ -32,7 +32,7 @@ Or open PolyClip.sln in Visual Studio.
 
 To compute the intersection (or union) of two polygon, execute
 
-  * polyclip [-union] input1.poly input2.poly output.poly
+- `polyclip [-union] input1.poly input2.poly output.poly`
 
 where "-union" is the optional switch for computing the union
 instead of the intersection, "input?.poly" are the names of the
@@ -49,6 +49,7 @@ of a vertex, followed by a "," or a ";", where the "," is used to
 separate the vertices of a polygon component and ";" marks the end
 of the component. For example, the following 7 lines:
 
+~~~~
 0 0,  
 1 0,  
 0 1;  
@@ -56,6 +57,7 @@ of the component. For example, the following 7 lines:
 1.5 -0.5,  
 1.5 1.5,  
 -0.5 1.5;
+~~~~
 
 describe a polygon with 2 components, a right triangle inside a
 square. All vertices in one file must be different from each
@@ -67,18 +69,18 @@ other.
 
 The following features are allowed in the input polygons:
 
- * the vertex order in each component can be CW or CCW
- * components can be nested (AKA holes)
- * the two input polygons are allowed to have degenerate
-   intersections (vertex on edge, overlapping edges, etc.)
-   with each other
+- the vertex order in each component can be CW or CCW
+- components can be nested (AKA holes)
+- the two input polygons are allowed to have degenerate
+  intersections (vertex on edge, overlapping edges, etc.)
+  with each other
 
 The following features are not allowed in the input polygons:
 
- * the polygons should not self-intersect (including degenerate
-   self-intersections like vertex on vertex, vertex on edge),
-   although the result will be correct as long as the self-
-   intersection does not lie on the other polygon
+- the polygons should not self-intersect (including degenerate
+  self-intersections like vertex on vertex, vertex on edge),
+  although the result will be correct as long as the self-
+  intersection does not lie on the other polygon
 
 
 ## 6) Robustness

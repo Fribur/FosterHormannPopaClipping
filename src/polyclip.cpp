@@ -976,18 +976,18 @@ int main(int argc, char* argv[])
     cout << "insufficient number of parameters" << endl;
     exit(0);
   }
-
-  if (!fileExists(argv[2]) || !fileExists(argv[3]))
-  {
-      cout << "Error accessing one of the input files" << endl;
-      exit(0);
-  }
-  
+ 
   int argn = 1;
   if (string(argv[1]) == "-union") {
     cout << "\n!!! computing UNION instead of INTERSECTION !!!\n";
     UNION = true;
     argn++;
+  }
+
+  if (!fileExists(argv[argn]) || !fileExists(argv[argn + 1]))
+  {
+      cout << "Error accessing one of the input files" << endl;
+      exit(0);
   }
 
   // read input polygons
