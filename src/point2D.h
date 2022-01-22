@@ -12,6 +12,8 @@
 
 using namespace std;
 
+#define EPSILON  0.000000001            // tolerance
+
 ////////////////////////////////////////////////////////////////////////
 //
 // a simple 2D point class with essential functionality
@@ -59,6 +61,11 @@ class point2D
   inline double operator*(const point2D& b) const { return (x*b.x+y*b.y); }
   // calculate the cross-product
   inline double operator%(const point2D& b) const { return (x*b.y-y*b.x); }
+  // equality test https://realtimecollisiondetection.net/blog/?p=89
+  inline bool operator==(const point2D& b) {
+	  return (fabs(x - b.x) <= fmax(EPSILON, EPSILON * fmax(fabs(x), fabs(b.x))) &&
+		  fabs(y - b.y) <= fmax(EPSILON, EPSILON * fmax(fabs(y), fabs(b.y)))); }
+  inline bool operator!=(const point2D& b) { return !(*this == b);  }
 };
 
 // multiplication operator that allows the scalar value to preceed the 2D point

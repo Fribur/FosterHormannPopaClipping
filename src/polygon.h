@@ -18,7 +18,6 @@ using namespace std;
 //
 ////////////////////////////////////////////////////////////////////////
 
-#define EPSILON  0.000000001            // tolerance
 
 enum IntersectionType {                 // types of intersection (detected in the first phase)
     NO_INTERSECTION,
@@ -42,7 +41,8 @@ enum IntersectionLabel {      // for the classification of intersection vertices
   ON_LEFT,
   ON_RIGHT,
   DELAYED_CROSSING,
-  DELAYED_BOUNCING
+  DELAYED_BOUNCING,
+  SKIP,
 };
 
 enum EntryExitLabel {         // for marking intersection vertices as "entry" or "exit"
@@ -63,6 +63,8 @@ public:
   double alpha;               // to describe relative edge position of an intersection vertex
   IntersectionLabel label;    // type of intersection vertex
   EntryExitLabel enex;        // entry/exit "flag"
+  int intersectingComponentID;
+  int ComponentID;
 
   //
   // default-constructor for generating a vertex with coordinates (0,0)
@@ -100,11 +102,15 @@ public:
 // link vertex P to vertex Q, using the neighbour pointer
 // and mark both vertices as intersection vertices
 //
-void link(vertex* P, vertex* Q) {
+void link(vertex* P, vertex* Q, int P_ID, int Q_ID) {
   P->neighbour = Q;
   Q->neighbour = P;
   P->intersection = true;
   Q->intersection = true;
+  P->intersectingComponentID = Q_ID;
+  Q->intersectingComponentID = P_ID;
+  P->ComponentID = P_ID;
+  Q->ComponentID = Q_ID;
 }
 
 //
@@ -464,8 +470,11 @@ public:
   //
   bool allOnOn() {
     for (vertex* V : vertices(ALL))
-      if (V->label != ON_ON)
-        return(false);
+        if (V->label != ON_ON)
+        {
+            if (!(V->p == V->next->p || V->p == V->prev->p))
+                return(false);
+        }
     return(true);
   }
 
@@ -477,7 +486,10 @@ public:
       for (vertex* V : vertices(ALL))
           if (V->intersection) {
               if ((V->label == CROSSING) || (V->label == DELAYED_CROSSING))
-                  return(false);
+              {
+                  if (!(V->p == V->next->p || V->p == V->prev->p))
+                      return(false);
+              }
           }
       return(true);
   }
@@ -490,7 +502,10 @@ public:
       for (vertex* V : vertices(ALL))
           if (V->intersection) {
               if ((V->label == BOUNCING) || (V->label == DELAYED_BOUNCING))
-                  return(false);
+              {
+                  if (!(V->p == V->next->p || V->p == V->prev->p))
+                      return(false);
+              }
           }
       return(true);
   }
@@ -500,26 +515,45 @@ public:
   // (e.g. union of a polygon with a hole with polygon filling the hole) 
   // and will then returns "false" and point (0,0)
   //
-  bool getNonIntersectionPoint(point2D& nonIntersectionPoint) {
+  bool getNonIntersectionPoint(point2D& nonIntersectionPoint, int otherComponentID) {
       for (vertex* V : vertices(ALL))
+      {
           if (!V->intersection)
           {
               nonIntersectionPoint = (V->p);
               return true;
-          }
+          }          
+      }
+
+      // no non-intersection vertex found -> in case a componentID was provided, try to find 
+      // a non-intersection vertex between given component (polygon) and the otherComponentID (polygon)
+      if (otherComponentID != -1)
+      {
+          for (vertex* V : vertices(ALL))
+              if (V->intersectingComponentID != otherComponentID)
+              {
+                  if (!(V->p == V->next->p && V->next->intersectingComponentID == otherComponentID ||
+                      V->p == V->prev->p && V->prev->intersectingComponentID == otherComponentID))
+                  {
+                      nonIntersectionPoint = (V->p);
+                      return true;
+                  }
+              }
+      }
 
       // no non-intersection vertex found -> find suitable edge midpoint
       for (vertex* V : vertices(ALL))
           // make sure that edge from V to V->next is not collinear with other polygon
-          if ((V->next->neighbour != V->neighbour->prev) && (V->next->neighbour != V->neighbour->next))
+          if ((V->next->neighbour != V->neighbour->prev) && (V->next->neighbour != V->neighbour->next) && V->next->intersectingComponentID != V->intersectingComponentID)
           {
               // return edge midpoint
-              nonIntersectionPoint = (0.5 * (V->p + V->next->p));
+              point2D nextPoint = V->p == V->next->p ? V->next->next->p : V->next->p; //necessary because of dublicating intersection vertices in section 3.5
+              nonIntersectionPoint = (0.5 * (V->p + nextPoint));
               return true;
           }
       nonIntersectionPoint = point2D();
       return false;
-  }
+  }  
   
   //
   // return and insert a non-intersection vertex
@@ -532,14 +566,17 @@ public:
     // no non-intersection vertex found -> generate and return temporary vertex
     for (vertex* V : vertices(ALL))
       // make sure that edge from V to V->next is not collinear with other polygon
-      if ( (V->next->neighbour != V->neighbour->prev) && (V->next->neighbour != V->neighbour->next) ) {
+      if ( (V->next->neighbour != V->neighbour->prev) && (V->next->neighbour != V->neighbour->next) ) 
+      {
         // add edge midpoint as temporary vertex
-        point2D p = 0.5*(V->p + V->next->p);
+        point2D nextPoint = V->p == V->next->p ? V->next->next->p : V->next->p; //necessary because of dublicating intersection vertices in section 3.5
+        point2D p = (0.5 * (V->p + nextPoint));
         vertex* T = new vertex(p);
         insertVertex(T, V);
         return(T);
       }
-    return(NULL);
+    cout << "Could not find non intersecting vertex!\n";
+    return(new vertex());
   }
 
   //

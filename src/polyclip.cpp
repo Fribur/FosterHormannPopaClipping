@@ -162,27 +162,36 @@ IntersectionType intersect(const edge& edgeP, const edge& edgeQ, double& alpha, 
 //
 ////////////////////////////////////////////////////////////////////////
 
-bool getNonIntersectionPointBruteForce(polygon* A, polygon* B, point2D& nonIntersectionPoint) {
-    //for the inside test between two components to work we need a non intersecting point.  
-    //this method is last resort trying to find one brute force 
+bool getNonSelfIntersectionPointBruteForce(polygon& P, vector<polygon>* PP, point2D& nonIntersectionPoint) {
     double alpha;
     double beta;
-    for (edge edgeA : A->edges(SOURCE))
+    for (edge edgeA : P.edges(SOURCE))
     {
-        bool edgeIntersects = false;
-        for (edge edgeB : B->edges(SOURCE))
+        bool selfIntersection = false;
+        for (polygon& Pinner : *PP)
         {
-            IntersectionType i = intersect(edgeA, edgeB, alpha, beta);
-            if (i != NO_INTERSECTION)
-                edgeIntersects = true;
+            if (P.root == Pinner.root) //do not test against itself
+                continue;
+
+            bool edgeIntersects = false;
+            for (edge edgeB : Pinner.edges(SOURCE))
+            {
+                IntersectionType i = intersect(edgeA, edgeB, alpha, beta);
+                if (i != NO_INTERSECTION)
+                    selfIntersection = true;
+                break;
+            }
+            if (selfIntersection) //edgeA self intersects with a Pinner component, try next edge.
+                break;
         }
-        if (!edgeIntersects)
+        if (!selfIntersection)
         {
             nonIntersectionPoint = edgeA.one->p;
             return true;
         }
     }
 
+    cout << "No non-self intersection point found!\n";
     nonIntersectionPoint = point2D();
     return false;
 }
@@ -205,74 +214,84 @@ void computeIntersections() {
   //
   // loop over the source edges of P and Q
   //
-  for (polygon& P : PP) 
-    for (edge edgeP : P.edges(SOURCE))
-      for (polygon& Q : QQ) 
-        for (edge edgeQ : Q.edges(SOURCE)) {
-          //
-    			// determine intersection or overlap type
-          //
-          IntersectionType i = intersect(edgeP, edgeQ, alpha, beta);
-          count[i]++;
-    
-          vertex* P1 = edgeP.one;
-          vertex* Q1 = edgeQ.one;
-    
-          switch(i) {
-    		//
-    		// X-intersection
-    		//
-          case X_INTERSECTION:
-            I = (1.0-alpha)*edgeP.one->p + alpha*edgeP.two->p;
-            I_P = new vertex(I,alpha);
-            I_Q = new vertex(I,beta);
-            insertVertex(I_P, edgeP);
-            insertVertex(I_Q, edgeQ);
-            link(I_P, I_Q);
-            break;
-    
-      		//
-    		// X-overlap
-    		//
-          case X_OVERLAP:
-    				I_Q = new vertex(P1->p, beta);
-            insertVertex(I_Q, edgeQ);
-            link(P1, I_Q);
-    
-    				I_P = new vertex(Q1->p, alpha);
-            insertVertex(I_P, edgeP);
-            link(I_P, Q1);
-            break;
-    
-    		//
-    		// T-intersection or T_overlap on Q
-    		//
-          case T_INTERSECTION_Q:
-          case T_OVERLAP_Q:
-    				I_Q = new vertex(P1->p, beta);
-            insertVertex(I_Q, edgeQ);
-            link(P1, I_Q);
-            break;
-    
-    		//
-    		// T-intersection or T-overlap on P
-    		//
-          case T_INTERSECTION_P:
-          case T_OVERLAP_P:
-    				I_P = new vertex(Q1->p, alpha);
-            insertVertex(I_P, edgeP);
-            link(I_P, Q1);
-            break;
-    
-    		//
-    		// V-intersection or V-overlap
-    		//
-          case V_INTERSECTION:
-          case V_OVERLAP:
-            link(P1,Q1);
-            break;
-    	  }
-        }
+  int P_ID = 0, Q_ID;
+  for (polygon& P : PP)
+  {
+      for (edge edgeP : P.edges(SOURCE))
+      {
+          Q_ID = 0;
+          for (polygon& Q : QQ)
+          {
+              for (edge edgeQ : Q.edges(SOURCE)) {
+                  //
+                        // determine intersection or overlap type
+                  //
+                  IntersectionType i = intersect(edgeP, edgeQ, alpha, beta);
+                  count[i]++;
+
+                  vertex* P1 = edgeP.one;
+                  vertex* Q1 = edgeQ.one;
+
+                  switch (i) {
+                      //
+                      // X-intersection
+                      //
+                  case X_INTERSECTION:
+                      I = (1.0 - alpha) * edgeP.one->p + alpha * edgeP.two->p;
+                      I_P = new vertex(I, alpha);
+                      I_Q = new vertex(I, beta);
+                      insertVertex(I_P, edgeP);
+                      insertVertex(I_Q, edgeQ);
+                      link(I_P, I_Q, P_ID, Q_ID);
+                      break;
+
+                      //
+                      // X-overlap
+                      //
+                  case X_OVERLAP:
+                      I_Q = new vertex(P1->p, beta);
+                      insertVertex(I_Q, edgeQ);
+                      link(P1, I_Q, P_ID, Q_ID);
+
+                      I_P = new vertex(Q1->p, alpha);
+                      insertVertex(I_P, edgeP);
+                      link(I_P, Q1, P_ID, Q_ID);
+                      break;
+
+                      //
+                      // T-intersection or T_overlap on Q
+                      //
+                  case T_INTERSECTION_Q:
+                  case T_OVERLAP_Q:
+                      I_Q = new vertex(P1->p, beta);
+                      insertVertex(I_Q, edgeQ);
+                      link(P1, I_Q, P_ID, Q_ID);
+                      break;
+
+                      //
+                      // T-intersection or T-overlap on P
+                      //
+                  case T_INTERSECTION_P:
+                  case T_OVERLAP_P:
+                      I_P = new vertex(Q1->p, alpha);
+                      insertVertex(I_P, edgeP);
+                      link(I_P, Q1, P_ID, Q_ID);
+                      break;
+
+                      //
+                      // V-intersection or V-overlap
+                      //
+                  case V_INTERSECTION:
+                  case V_OVERLAP:
+                      link(P1, Q1, P_ID, Q_ID);
+                      break;
+                  }
+              }
+          }
+          Q_ID++;
+      }
+      P_ID++;
+  }
     
   cout << "... " << count[1] << " non-degenerate and ";
   cout << count[2]+count[3]+count[4]+count[5]+count[6]+count[7]+count[8] << " degenerate intersections found" << endl;
@@ -431,9 +450,9 @@ void labelIntersections() {
   				x = RIGHT;
         vertex* X = I;
   
-  			// proceed to end of intersection chain and mark all visited vertices as NONE
+  			// proceed to end of intersection chain and mark all visited vertices as SKIP
   			do {
-  				I->label = NONE;
+  				I->label = SKIP;
   				I = I->next;
   			} while (I->label == ON_ON);
   
@@ -467,9 +486,22 @@ void labelIntersections() {
     //
 
   // loop over intersection vertices of P
-  for (polygon& P : PP) 
+  for (polygon& P : PP)
     for (vertex* I : P.vertices(INTERSECTION))
-      I->neighbour->label = I->label;
+    {
+        if (I->neighbour->label == NONE)
+            I->neighbour->label = I->label;
+        else
+        {
+            //ups...neighbour vertext has already been labled, meaning P intersects twice in this Q component / Q vertex. 
+            //dublicate Q vertex before copying labels from P to Q vertex, so that same Q vertex can have different entry/exit 
+            //flags and createResult tracing does not go into endless loop 
+            vertex* V_Q = new vertex(I->neighbour->p, I->neighbour->alpha);
+            V_Q->label = I->label;
+            insertVertex(V_Q, I->neighbour);
+            link(V_Q, I, I->ComponentID, I->intersectingComponentID);
+        }
+    }
 
     //
     // 3.5) check for special cases
@@ -489,8 +521,11 @@ void labelIntersections() {
       Q_or_P = &PP;
     }
   
+
     // loop over all components of P (or Q)
+    int componentID = 0;
     for (polygon& P : *P_or_Q)
+    {
         if (P.noCrossingVertex()) {
             if (P.noBouncingVertex())
             {
@@ -502,7 +537,7 @@ void labelIntersections() {
                     // is P inside Q_or_P?   
                     bool isInside = false;
                     point2D p;
-                    P.getNonIntersectionPoint(p); //guarrantied to succeed here, because allOnOn test failed. 
+                    P.getNonIntersectionPoint(p, -1); //guaranteed to succeed here, because allOnOn test failed. 
                     for (polygon& Q : *Q_or_P)
                         if (Q.pointInPoly(p))
                             isInside = !isInside;
@@ -520,14 +555,11 @@ void labelIntersections() {
                     // In case of UNION, check if the P component is encompassing any of the (possibly touching) Q components of QQ. 
                     // If so, add the P component to solution. If not solution could be empty (no crossing vertices in CreateResult). 
                     bool isOtherInside = false;
-                    for (polygon& Qb : *Q_or_P)  //go through all components of the other polygon and check if one if them is fully inside P
+                    //go through all components of the other polygon and check if one if them is fully inside P
+                    for (polygon& Qb : *Q_or_P)  
                     {
                         point2D q;
-                        bool success = Qb.getNonIntersectionPoint(q); //will fail e.g. in case the Q component fully overlaps a hole of PP
-                        //brute force search of non-intersecting point between Q and P component. Could "remeber" this in intersection phase 
-                        //(add contributing componentIDs to intersection node struct)
-                        if (!success)
-                            success = getNonIntersectionPointBruteForce(&Qb, &P, q);
+                        bool success = Qb.getNonIntersectionPoint(q, componentID);
                         if (P.pointInPoly(q))
                         {
                             isOtherInside = !isOtherInside;
@@ -544,16 +576,18 @@ void labelIntersections() {
                 else
                 {
                     // In case of DIFFERENCE, add the inner component to the solution
-                   // check if P is inside Q_or_P ?
+                    // check if P is inside Q_or_P ?
                     bool isInside = false;
                     point2D p;
-                    bool success = P.getNonIntersectionPoint(p);
+                    bool success = P.getNonIntersectionPoint(p, -1);
+                    int Q_ID = 0;
                     for (polygon& Q : *Q_or_P)
                     {
-                        if (!success) //find for the Q and P component a non-intersecting point. Could remember this in intersection phase (add contributing componentIDs to intersection node struct)
-                            success = getNonIntersectionPointBruteForce(&P, &Q, p);
+                        if (!success) //find for the Q and P component a non-intersecting point. 
+                            P.getNonIntersectionPoint(p, Q_ID);
                         if (Q.pointInPoly(p))
                             isInside = !isInside;
+                        Q_ID++;
                     }
                     if (isInside) {
                         RR.push_back(P);             // -> add P to the result
@@ -562,6 +596,8 @@ void labelIntersections() {
                 }
             }
         }
+        componentID++;
+    }
   }
 
   // handle components of P that are identical to some component of Q
@@ -571,11 +607,7 @@ void labelIntersections() {
     point2D q, p;
     if (PP.size() > 1)
     {
-        for (polygon& P_ : PP)
-            if (P_.root != P->root) //skip test of P component against itself
-                if(getNonIntersectionPointBruteForce(&(*P), &P_, p)); //root node could be degenerate (hole node and outer polygon node overlap...so need to search )
-                    break; //we found a suitable p. (improvement: verify non-self-intersection against entire PP, not just first hit?)
-
+        getNonSelfIntersectionPointBruteForce(*P, &PP, p);
         for (polygon& P_ : PP)
             if ((P_.root != P->root) && P_.pointInPoly(p)) //skip test of P component against itself
                 P_isHole = !P_isHole;
@@ -586,10 +618,7 @@ void labelIntersections() {
         if (V == P->root->neighbour) {  // found Q that matches P
           // is Q a hole?
           bool Q_isHole = false;  
-          for (polygon& Q_ : QQ)
-              if (Q_.root != Q->root) //skip test of Q component against itself
-                  if (getNonIntersectionPointBruteForce(&(*Q), &Q_, q)); //root node could be degenerate (hole node and outer polygon node overlap...so need to search )
-                    break; //we found a suitable q. (improvement: verify non-self-intersection against entire QQ, not just first hit?)
+          getNonSelfIntersectionPointBruteForce(*Q, &QQ, q);
 
           for (polygon& Q_ : QQ)
             if ( ( Q_.root != Q->root ) && (Q_.pointInPoly(q)) )
@@ -715,7 +744,7 @@ void labelIntersections() {
           // toggle status from ENTRY to EXIT or vice versa (for first AND last chain vertex)
           toggle(status);
         }
-  		}
+      }
     }  
   }
 
@@ -745,12 +774,12 @@ void labelIntersections() {
       double sQ = A( I_Q->prev->p, I_Q->p, I_Q->next->p);
 
       // link vertices correctly
-      if (sP*sQ > 0) {                  // same local orientation
-        link(I_P, V_Q);
-        link(I_Q, V_P);
+      if (sP*sQ > 0) {                  // same local orientation TODO: review what do to when one is zero
+        link(I_P, V_Q, I_P->ComponentID, I_Q->ComponentID);
+        link(I_Q, V_P, I_Q->ComponentID, I_P->ComponentID);
       }
       else {                            // different local orientation
-        link(V_P, V_Q);
+        link(V_P, V_Q, I_P->ComponentID, I_Q->ComponentID);
       }
 
       // add duplicate vertices to P and Q    
@@ -775,6 +804,13 @@ void labelIntersections() {
       V_P->label = CROSSING;
       I_Q->label = CROSSING;
       V_Q->label = CROSSING;
+    }
+    else
+    {
+        //split canidate has no neighbor. What does that mean? It can result in missing component in polygon 
+        //(e.g. union in test leading to 49+51+56+52simple)
+        I_P->enex = ENTRY;
+        I_P->label = CROSSING;
     }
   }
 
@@ -976,7 +1012,7 @@ int main(int argc, char* argv[])
     cout << "insufficient number of parameters" << endl;
     exit(0);
   }
- 
+  
   int argn = 1;
   if (string(argv[1]) == "-union") {
     cout << "\n!!! computing UNION instead of INTERSECTION !!!\n";

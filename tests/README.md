@@ -48,4 +48,25 @@ following commands (ensure polyclip executable is in test folder):
   - `polyclip -union ChessBoard3-P.poly ChessBoard3-Q.poly ChessBoard3-R.poly`
   - `polyclip -union ChessBoard4-P.poly ChessBoard4-Q.poly ChessBoard4-R.poly`
   - `polyclip -union ChessBoard5-P.poly ChessBoard1-Q.poly ChessBoard5-R.poly`
+  
+## Resolved issues
+1) Issue with polygon where 2 components of P (outer polygon and degenerate hole) and 1 component of Q intersect in same node
+ - `polyclip -union 49.poly 56.poly 49+56.poly`
+ - `polyclip -union 49+56.poly 51.poly 49+56+51.poly`
+ - `polyclip -union 49+56+51.poly 52.poly 49+56+51+52.poly`
+   - resolved crash in this step
+ 
+ - `polyclip -union 49.poly 51.poly 49+51.poly`
+ - `polyclip -union 49+51.poly 56.poly 49+51+56.poly`
+ - `polyclip -union 49+51+56.poly 52.poly 49+51+56+52.poly`
+   - resolved crash in this step
+ 
+ - `polyclip -union 49simple.poly 56simple.poly 49+56simple.poly`
+ - `polyclip -union 49+56simple.poly 51simple.poly 49+56+51simple.poly`
+ - `polyclip -union 49+56+51simple.poly 52simple.poly 49+56+51+52simple.poly`
+   - this result is still not quite correct
+ 
+ - `polyclip -union 49simple.poly 51simple.poly 49+51simple.poly`
+ - `polyclip -union 49+51simple.poly 56simple.poly 49+51+56simple.poly`
+ - `polyclip -union 49+51+56simple.poly 52simple.poly 49+51+56+52simple.poly`
     
